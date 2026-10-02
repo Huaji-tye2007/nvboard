@@ -28,7 +28,7 @@ $(NVBOARD_ARCHIVE): $(NVBOARD_OBJS)
 # Link flags for examples
 LDFLAGS += $(shell sdl2-config --libs) -lSDL2_image -lSDL2_ttf
 
-.PHONY: nvboard-archive nvboard-clean nvboard-vga-test
+.PHONY: nvboard-archive nvboard-clean nvboard-vga-test nvboard-vga-rtl-test
 
 nvboard-archive: $(NVBOARD_ARCHIVE)
 
@@ -37,7 +37,22 @@ $(NVBOARD_VGA_TEST): $(NVBOARD_HOME)/tests/vga_sync_test.cpp $(NVBOARD_ARCHIVE)
 	$(CXX) -std=c++11 -I$(NVBOARD_INC) $(CXXFLAGS) $< $(NVBOARD_ARCHIVE) $(LDFLAGS) -o $@
 
 nvboard-vga-test: $(NVBOARD_VGA_TEST)
-	SDL_VIDEODRIVER=dummy $(NVBOARD_VGA_TEST)
+	NVBOARD_HOME=$(NVBOARD_HOME) SDL_VIDEODRIVER=dummy $(NVBOARD_VGA_TEST)
+
+# End-to-end fixture for lab07's ROM-based adapter (Verilator 5).
+ifneq ($(wildcard $(RTL_DIR)/mem/vga_ram.hex),)
+NVBOARD_VERILATOR_ROOT := $(shell $(VERILATOR) --getenv VERILATOR_ROOT)
+NVBOARD_VGA_RTL_TEST := $(NVBOARD_OUT)/vga_rtl_test
+$(NVBOARD_VGA_RTL_TEST): $(NVBOARD_HOME)/tests/vga_rtl_test.cpp $(NVBOARD_BIN)
+	$(CXX) -std=c++11 -I$(NVBOARD_INC) $(CXXFLAGS) -I$(NVBOARD_OBJ_DIR) \
+		-I$(NVBOARD_VERILATOR_ROOT)/include -I$(NVBOARD_VERILATOR_ROOT)/include/vltstd \
+		$< $(NVBOARD_OBJ_DIR)/Vnvboard_top__ALL.a \
+		$(NVBOARD_OBJ_DIR)/verilated.o $(NVBOARD_OBJ_DIR)/verilated_threads.o \
+		$(NVBOARD_ARCHIVE) $(LDFLAGS) -pthread -o $@
+
+nvboard-vga-rtl-test: $(NVBOARD_VGA_RTL_TEST)
+	NVBOARD_HOME=$(NVBOARD_HOME) SDL_VIDEODRIVER=dummy $(NVBOARD_VGA_RTL_TEST)
+endif
 
 nvboard-clean:
 	rm -rf $(NVBOARD_BUILD_DIR)

@@ -2,6 +2,7 @@
 #define __VGA_H__
 
 #include <component.h>
+#include <stdint.h>
 
 #define VGA_DEFAULT_WIDTH  640
 #define VGA_DEFAULT_HEIGHT 480
@@ -19,21 +20,24 @@ class VGA : public Component{
 private:
   int vga_screen_width, vga_screen_height;
   uint32_t *pixels;
-  int vga_clk_cnt;
-  int pixel_x, pixel_y;
+  uint32_t *capture_pixels;
+  SDL_Texture *no_signal_texture;
+  int line_y, captured_pixels;
+  uint64_t hsync_age, vsync_age;
   bool prev_hsync, prev_vsync;
-  bool frame_synced, line_started;
+  bool have_hsync, frame_synced, frame_valid, first_line;
+  bool signal_present, has_blank;
   uint8_t *p_r, *p_g, *p_b;
   bool is_r_len8, is_g_len8, is_b_len8;
   bool is_all_len8;
-  bool is_pixels_same;
 
   uint32_t get_pixel_color_slowpath();
   void finish_one_frame();
+  void lose_signal();
 
 public:
   VGA(SDL_Renderer *rend, int cnt, int init_val, int ct);
-  ~VGA();
+  virtual ~VGA();
 
   virtual void update_gui();
   virtual void update_state();

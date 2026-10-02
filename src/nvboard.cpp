@@ -56,6 +56,8 @@ void nvboard_update() {
 }
 
 void nvboard_init(int vga_clk_cycle) {
+    extern void vga_set_clk_cycle(int cycle);
+    vga_set_clk_cycle(vga_clk_cycle);
     // init SDL and SDL_image
     SDL_Init(SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_EVENTS);
     IMG_Init(IMG_INIT_PNG);
@@ -93,15 +95,14 @@ void nvboard_init(int vga_clk_cycle) {
     init_nvboard_timer();
 
     update_components(main_renderer);
-
-    extern void vga_set_clk_cycle(int cycle);
-    vga_set_clk_cycle(vga_clk_cycle);
 }
 
 void nvboard_quit(){
+    void quit_vga();
+    quit_vga();
     delete_components();
-    SDL_DestroyWindow(main_window);
     SDL_DestroyRenderer(main_renderer);
+    SDL_DestroyWindow(main_window);
     IMG_Quit();
     SDL_Quit();
 }
