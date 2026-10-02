@@ -18,8 +18,7 @@ void uart_tx_receive();
 void uart_rx_send();
 
 void nvboard_update() {
-  extern uint8_t *vga_blank_n_ptr;
-  if (*vga_blank_n_ptr) vga_update();
+  vga_update();
 
   extern bool is_kb_idle;
   if (unlikely(!is_kb_idle)) kb_update();

@@ -23,7 +23,9 @@ uint8_t *vga_blank_n_ptr = NULL;
 VGA::VGA(SDL_Renderer *rend, int cnt, int init_val, int ct):
     Component(rend, cnt, init_val, ct),
     vga_screen_width(VGA_DEFAULT_WIDTH), vga_screen_height(VGA_DEFAULT_HEIGHT),
-    vga_clk_cnt(1) {
+    vga_clk_cnt(1), pixel_x(0), pixel_y(-1),
+    prev_hsync(true), prev_vsync(true), frame_synced(false),
+    line_started(false), is_pixels_same(true) {
   SDL_Texture *vga_texture = SDL_CreateTexture(rend, SDL_PIXELFORMAT_ARGB8888,
     SDL_TEXTUREACCESS_STREAMING, vga_screen_width, vga_screen_height);
   set_texture(vga_texture, 0);
@@ -46,8 +48,6 @@ VGA::VGA(SDL_Renderer *rend, int cnt, int init_val, int ct):
   int vga_blank_n_len = pin_array[VGA_BLANK_N].vector_len;
   assert(vga_blank_n_len == 1 || vga_blank_n_len == 0);
   vga_blank_n_ptr = (uint8_t *)pin_array[VGA_BLANK_N].ptr;
-  p_pixel = pixels;
-  p_pixel_end = pixels + vga_screen_width * vga_screen_height;
 }
 
 VGA::~VGA() {
@@ -83,7 +83,6 @@ uint32_t VGA::get_pixel_color_slowpath() {
 }
 
 __attribute__((noinline)) void VGA::finish_one_frame() {
-  p_pixel = pixels;
   if (!is_pixels_same) {
     update_gui();
     is_pixels_same = true;
@@ -91,21 +90,45 @@ __attribute__((noinline)) void VGA::finish_one_frame() {
 }
 
 void VGA::update_state() {
+  // Observe sync even during blanking; the pixel clock divider keeps running.
+  bool hsync = pin_peek(VGA_HSYNC);
+  bool vsync = pin_peek(VGA_VSYNC);
+  if (prev_vsync && !vsync) {
+    if (frame_synced) finish_one_frame();
+    frame_synced = true;
+    pixel_x = 0;
+    pixel_y = -1;
+    line_started = false;
+  }
+  if (prev_hsync && !hsync) {
+    pixel_x = 0;
+    line_started = false;
+    vga_clk_cnt = 0;
+  }
+  prev_hsync = hsync;
+  prev_vsync = vsync;
+
   if (unlikely(vga_clk_cycle_minus_1 > 0)) {
     if (vga_clk_cnt > 0) { vga_clk_cnt --; return; }
     vga_clk_cnt = vga_clk_cycle_minus_1;
   }
 
+  if (!frame_synced || !hsync || !vsync || !*vga_blank_n_ptr) return;
+  if (!line_started) {
+    line_started = true;
+    pixel_y ++;
+  }
+  // A stopped DUT clock may leave blank_n high. Never wrap into another line.
+  if (pixel_x >= vga_screen_width || pixel_y >= vga_screen_height) return;
+
   uint32_t color = 0;
   if (likely(is_all_len8)) color = ((*p_r) << 16) | ((*p_g) << 8) | (*p_b);
   else                     color = get_pixel_color_slowpath();
-  bool is_same = (*p_pixel == color);
+  uint32_t *pixel = pixels + pixel_y * vga_screen_width + pixel_x;
+  bool is_same = (*pixel == color);
   is_pixels_same &= is_same;
-  *p_pixel = color;
-  p_pixel ++;
-  if (unlikely(p_pixel == p_pixel_end)) {
-    finish_one_frame();
-  }
+  *pixel = color;
+  pixel_x ++;
 }
 
 void vga_set_clk_cycle(int cycle) {

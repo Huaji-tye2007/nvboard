@@ -28,9 +28,16 @@ $(NVBOARD_ARCHIVE): $(NVBOARD_OBJS)
 # Link flags for examples
 LDFLAGS += $(shell sdl2-config --libs) -lSDL2_image -lSDL2_ttf
 
-.PHONY: nvboard-archive nvboard-clean
+.PHONY: nvboard-archive nvboard-clean nvboard-vga-test
 
 nvboard-archive: $(NVBOARD_ARCHIVE)
+
+NVBOARD_VGA_TEST := $(NVBOARD_BUILD_DIR)/vga_sync_test
+$(NVBOARD_VGA_TEST): $(NVBOARD_HOME)/tests/vga_sync_test.cpp $(NVBOARD_ARCHIVE)
+	$(CXX) -std=c++11 -I$(NVBOARD_INC) $(CXXFLAGS) $< $(NVBOARD_ARCHIVE) $(LDFLAGS) -o $@
+
+nvboard-vga-test: $(NVBOARD_VGA_TEST)
+	SDL_VIDEODRIVER=dummy $(NVBOARD_VGA_TEST)
 
 nvboard-clean:
 	rm -rf $(NVBOARD_BUILD_DIR)

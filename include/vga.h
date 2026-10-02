@@ -20,8 +20,9 @@ private:
   int vga_screen_width, vga_screen_height;
   uint32_t *pixels;
   int vga_clk_cnt;
-  uint32_t *p_pixel;
-  uint32_t *p_pixel_end;
+  int pixel_x, pixel_y;
+  bool prev_hsync, prev_vsync;
+  bool frame_synced, line_started;
   uint8_t *p_r, *p_g, *p_b;
   bool is_r_len8, is_g_len8, is_b_len8;
   bool is_all_len8;
